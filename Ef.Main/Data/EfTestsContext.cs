@@ -1,38 +1,54 @@
-﻿using System;
+﻿using System.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Options;
 
 namespace Ef.Main.Data
 {
     public partial class EfTestsContext : DbContext
     {
-        public static readonly ILoggerFactory logger
-            = LoggerFactory.Create(builder => { builder.AddConsole(); });
+        private readonly RlsSecurityContext _securityContext;
 
         public EfTestsContext()
         {
         }
 
-        public EfTestsContext(DbContextOptions<EfTestsContext> options)
+        public EfTestsContext(DbContextOptions<EfTestsContext> options, RlsSecurityContext securityContext)
             : base(options)
         {
+            _securityContext = securityContext;
         }
 
+        public virtual DbSet<AuthorBook> AuthorBooks { get; set; }
         public virtual DbSet<Author> Authors { get; set; }
         public virtual DbSet<Book> Books { get; set; }
+        public virtual DbSet<Profile> Profiles { get; set; }
+        public virtual DbSet<History> History { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseLoggerFactory(logger);
             optionsBuilder.EnableSensitiveDataLogging();
             if (!optionsBuilder.IsConfigured)
             {
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http: //go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
-                optionsBuilder.UseSqlServer("server=.;database=EfTests; Trusted_Connection= True");
+                var sqlConnection = PrepareConnection();
+                optionsBuilder.UseSqlServer(sqlConnection);
             }
+        }
+
+        private SqlConnection PrepareConnection()
+        {
+            var connection = new SqlConnection("server=.;database=EfTests; Trusted_Connection= True");
+            connection.StateChange += (s, ev) =>
+            {
+                if (ev.CurrentState == ConnectionState.Open && !string.IsNullOrEmpty(_securityContext.Owner))
+                {
+                    var cmd = connection.CreateCommand();
+                    cmd.CommandText = @"exec sp_set_session_context @key=N'owner', @value=@owner";
+                    cmd.Parameters.AddWithValue("@owner", _securityContext.Owner);
+                    cmd.ExecuteNonQuery();
+                }
+            };
+            return connection;
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -65,8 +81,10 @@ namespace Ef.Main.Data
                 entity.Property(e => e.Name)
                     .HasMaxLength(100)
                     .IsUnicode(false);
-                entity.HasOne<Profile>(p => p.Profile)
-                    .WithOne(p => p.Author);
+
+                entity.HasOne(p => p.Profile)
+                    .WithOne(p => p.Author)
+                    .HasForeignKey<Author>(a => a.ProfileId);
             });
 
             modelBuilder.Entity<Book>(entity =>

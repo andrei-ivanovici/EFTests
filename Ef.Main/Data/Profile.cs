@@ -2,7 +2,8 @@
 {
     public class Profile
     {
-        public  int AuthorId { get; set; }
+        public int Id { get; set; }
+        public string Alias { get; set; } 
         public Author Author { get; set; }
     }
 }
