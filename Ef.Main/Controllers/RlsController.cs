@@ -11,17 +11,22 @@ namespace Ef.Main.Controllers
     public class RlsController : ControllerBase
     {
         private readonly EfTestsContext _context;
+        private readonly RlsSecurityContext _securityContext;
 
-        public RlsController(EfTestsContext context)
+        public RlsController(EfTestsContext context, RlsSecurityContext securityContext)
         {
             _context = context;
+            _securityContext = securityContext;
         }
 
         [HttpPost]
-        public void AddHtoHistory(History history)
+        public History AddHtoHistory(History history)
         {
             history.EventTime = DateTime.Now;
+            history.Owner = _securityContext.Owner;
             _context.Add(history);
+            _context.SaveChanges();
+            return history;
         }
 
         [HttpGet]

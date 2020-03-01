@@ -7,5 +7,6 @@ namespace Ef.Main.Data
         public DateTime EventTime { get; set; }
         public int Id { get; set; }
         public string Event { get; set; }
+        public string Owner { get; set; }
     }
 }
