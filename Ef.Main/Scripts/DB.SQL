@@ -1,6 +1,4 @@
-﻿create schema dbo
-go
-
+﻿
 create table Authors
 (
 	Id int identity
